@@ -1,0 +1,14 @@
+{
+  "name": "x-times-relay",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "send": "node send-url.mjs",
+    "poll": "node poll-x.mjs",
+    "post": "node post-x.mjs",
+    "ui": "node server.mjs"
+  }
+}
