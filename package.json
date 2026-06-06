@@ -9,6 +9,7 @@
     "send": "node send-url.mjs",
     "poll": "node poll-x.mjs",
     "post": "node post-x.mjs",
-    "ui": "node server.mjs"
+    "ui": "node server.mjs",
+    "list": "node list.mjs"
   }
 }
