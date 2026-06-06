@@ -179,8 +179,12 @@ function renderHistory(history) {
   const rows = history.slice(0, 50).map((e) => {
     const date = new Date(e.sent_at).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
     const text = e.text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    const link = (p) =>
-      p?.ok && p.url ? `<a href="${p.url}" target="_blank" rel="noopener">${p.url}</a>` : p ? "エラー" : "未設定";
+    const link = (p) => {
+      if (!p?.ok || !p.url) return p ? "エラー" : "未設定";
+      if (!/^https?:\/\//.test(p.url)) return "（不正なURL）";
+      const escaped = p.url.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+      return `<a href="${escaped}" target="_blank" rel="noopener">${escaped}</a>`;
+    };
     return `<tr>
       <td>${date}</td>
       <td class="text-cell">${text}</td>
