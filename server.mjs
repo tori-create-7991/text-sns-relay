@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 /**
- * ローカル用 Web UI（127.0.0.1 のみ既定）。ブラウザから投稿 → Slack/Discord へ共有。
+ * ローカル用 Web UI（127.0.0.1 のみ既定）。ブラウザから投稿 → X/Bluesky/Threads に同時投稿、Slack/Discord へ共有。
  */
 
 import { createServer } from "node:http";
 import { loadEnv } from "./lib/load-env.mjs";
-import { postTweetAndRelay } from "./lib/post-x.mjs";
+import { postAll } from "./lib/post-all.mjs";
+import { loadHistory } from "./lib/history.mjs";
 
 loadEnv();
 
@@ -54,7 +55,7 @@ const HTML = `<!DOCTYPE html>
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>X → Slack / Discord</title>
+  <title>X / Bluesky / Threads → Slack / Discord</title>
   <style>
     :root {
       --bg: #0f1419;
@@ -80,7 +81,10 @@ const HTML = `<!DOCTYPE html>
       border-radius: 12px; padding: 1.5rem 1.25rem;
       box-shadow: 0 8px 32px rgba(0,0,0,.35);
     }
-    h1 { font-size: 1.125rem; font-weight: 600; margin: 0 0 0.25rem; }
+    .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem; }
+    h1 { font-size: 1.125rem; font-weight: 600; margin: 0; }
+    a.history-link { font-size: 0.75rem; color: var(--muted); text-decoration: none; }
+    a.history-link:hover { color: var(--accent); }
     p.sub { margin: 0 0 1.25rem; font-size: 0.8125rem; color: var(--muted); line-height: 1.5; }
     label { display: block; font-size: 0.75rem; color: var(--muted); margin-bottom: 0.35rem; }
     textarea {
@@ -101,16 +105,21 @@ const HTML = `<!DOCTYPE html>
     }
     button:hover:not(:disabled) { background: var(--accent-hover); }
     button:disabled { opacity: 0.5; cursor: not-allowed; }
-    #msg { margin-top: 1rem; font-size: 0.8125rem; line-height: 1.5; min-height: 1.25rem; }
+    #msg { margin-top: 1rem; font-size: 0.8125rem; line-height: 1.6; min-height: 1.25rem; }
     #msg.err { color: var(--err); }
     #msg.ok { color: var(--ok); word-break: break-all; }
+    #msg .platform { display: block; }
+    #msg a { color: var(--ok); }
     footer { margin-top: 1.25rem; font-size: 0.6875rem; color: var(--muted); line-height: 1.4; }
   </style>
 </head>
 <body>
   <div class="card">
-    <h1>X に投稿 → Slack / Discord</h1>
-    <p class="sub">この画面はローカル（${HOST}:${PORT}）のみで使う想定です。Webhook と X OAuth は .env に設定してください。</p>
+    <div class="card-header">
+      <h1>X / Bluesky / Threads に投稿</h1>
+      <a class="history-link" href="/history">履歴</a>
+    </div>
+    <p class="sub">設定済みのプラットフォームへ同時投稿し、Slack / Discord へ X の URL を共有します。</p>
     <label for="text">投稿本文</label>
     <textarea id="text" maxlength="5000" placeholder="いま書きたいこと…"></textarea>
     <div class="row chk">
@@ -122,19 +131,21 @@ const HTML = `<!DOCTYPE html>
     <footer>秘密情報はブラウザに出しません。Basic 認証は RELAY_UI_USER / RELAY_UI_PASSWORD で有効化できます。</footer>
   </div>
   <script>
-    const text = document.getElementById("text");
+    const textEl = document.getElementById("text");
     const shareBody = document.getElementById("shareBody");
     const btn = document.getElementById("btn");
     const msg = document.getElementById("msg");
-    function setMsg(t, ok) {
-      msg.textContent = t || "";
-      msg.className = ok === true ? "ok" : ok === false ? "err" : "";
+
+    function setMsg(html, cls) {
+      msg.innerHTML = html || "";
+      msg.className = cls || "";
     }
+
     btn.addEventListener("click", async () => {
-      const body = text.value.trim();
-      if (!body) { setMsg("本文を入力してください。", false); return; }
+      const body = textEl.value.trim();
+      if (!body) { setMsg("本文を入力してください。", "err"); return; }
       btn.disabled = true;
-      setMsg("送信中…", null);
+      setMsg("送信中…", "");
       try {
         const res = await fetch("/api/post", {
           method: "POST",
@@ -143,10 +154,19 @@ const HTML = `<!DOCTYPE html>
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.error || res.statusText);
-        setMsg("完了: " + data.url, true);
-        text.value = "";
+
+        const lines = [];
+        if (data.x?.ok) lines.push(\`<span class="platform">X: <a href="\${data.x.url}" target="_blank" rel="noopener">\${data.x.url}</a></span>\`);
+        if (data.x && !data.x.ok) lines.push(\`<span class="platform" style="color:var(--err)">X: エラー — \${data.x.error || '失敗'}</span>\`);
+        if (data.bluesky?.ok) lines.push(\`<span class="platform">Bluesky: <a href="\${data.bluesky.url}" target="_blank" rel="noopener">\${data.bluesky.url}</a></span>\`);
+        if (data.bluesky && !data.bluesky.ok) lines.push(\`<span class="platform" style="color:var(--err)">Bluesky: エラー — \${data.bluesky.error || '失敗'}</span>\`);
+        if (data.threads?.ok) lines.push(\`<span class="platform">Threads: <a href="\${data.threads.url}" target="_blank" rel="noopener">\${data.threads.url}</a></span>\`);
+        if (data.threads && !data.threads.ok) lines.push(\`<span class="platform" style="color:var(--err)">Threads: エラー — \${data.threads.error || '失敗'}</span>\`);
+
+        setMsg("完了:\\n" + lines.join(""), "ok");
+        textEl.value = "";
       } catch (e) {
-        setMsg(e.message || String(e), false);
+        setMsg(e.message || String(e), "err");
       } finally {
         btn.disabled = false;
       }
@@ -155,32 +175,87 @@ const HTML = `<!DOCTYPE html>
 </body>
 </html>`;
 
+function renderHistory(history) {
+  const rows = history.slice(0, 50).map((e) => {
+    const date = new Date(e.sent_at).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
+    const text = e.text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const link = (p) =>
+      p?.ok && p.url ? `<a href="${p.url}" target="_blank" rel="noopener">${p.url}</a>` : p ? "エラー" : "未設定";
+    return `<tr>
+      <td>${date}</td>
+      <td class="text-cell">${text}</td>
+      <td>${link(e.x)}</td>
+      <td>${link(e.bluesky)}</td>
+      <td>${link(e.threads)}</td>
+    </tr>`;
+  }).join("\n");
+
+  return `<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>送信履歴</title>
+  <style>
+    :root {
+      --bg: #0f1419; --card: #1a2332; --border: #2d3a4d;
+      --text: #e7ecf3; --muted: #8b9cb3; --accent: #1d9bf0;
+      font-family: ui-sans-serif, system-ui, "Segoe UI", Roboto, "Hiragino Sans", "Noto Sans JP", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); padding: 2rem 1rem; }
+    h1 { font-size: 1.125rem; font-weight: 600; margin: 0 0 0.5rem; }
+    a.back { font-size: 0.8125rem; color: var(--muted); text-decoration: none; display: inline-block; margin-bottom: 1.5rem; }
+    a.back:hover { color: var(--accent); }
+    .wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
+    th { text-align: left; padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border); color: var(--muted); white-space: nowrap; }
+    td { padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+    td.text-cell { max-width: 18rem; word-break: break-word; }
+    a { color: var(--accent); }
+    .empty { color: var(--muted); margin-top: 2rem; }
+  </style>
+</head>
+<body>
+  <a class="back" href="/">← 投稿画面に戻る</a>
+  <h1>送信履歴（最新 50 件）</h1>
+  <div class="wrap">
+    ${history.length === 0 ? '<p class="empty">まだ履歴がありません。</p>' : `
+    <table>
+      <thead><tr><th>日時</th><th>本文</th><th>X</th><th>Bluesky</th><th>Threads</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`}
+  </div>
+</body>
+</html>`;
+}
+
 const server = createServer(async (req, res) => {
   const url = new URL(req.url ?? "/", `http://${req.headers.host}`);
 
+  if (!checkBasicAuth(req)) {
+    res.writeHead(401, {
+      "WWW-Authenticate": 'Basic realm="x-times-relay"',
+      "Content-Type": "text/plain; charset=utf-8",
+    });
+    res.end("認証が必要です。");
+    return;
+  }
+
   if (req.method === "GET" && url.pathname === "/") {
-    if (!checkBasicAuth(req)) {
-      res.writeHead(401, {
-        "WWW-Authenticate": 'Basic realm="x-times-relay"',
-        "Content-Type": "text/plain; charset=utf-8",
-      });
-      res.end("認証が必要です。");
-      return;
-    }
     res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
     res.end(HTML);
     return;
   }
 
+  if (req.method === "GET" && url.pathname === "/history") {
+    const history = loadHistory();
+    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+    res.end(renderHistory(history));
+    return;
+  }
+
   if (req.method === "POST" && url.pathname === "/api/post") {
-    if (!checkBasicAuth(req)) {
-      res.writeHead(401, {
-        "WWW-Authenticate": 'Basic realm="x-times-relay"',
-        "Content-Type": "application/json",
-      });
-      res.end(JSON.stringify({ error: "Unauthorized" }));
-      return;
-    }
     let raw;
     try {
       raw = await readBody(req);
@@ -206,16 +281,12 @@ const server = createServer(async (req, res) => {
     }
 
     try {
-      const result = await postTweetAndRelay({ text, shareBody });
+      const result = await postAll(text, { shareBody });
       res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
       res.end(JSON.stringify(result));
     } catch (e) {
       res.writeHead(500, { "Content-Type": "application/json; charset=utf-8" });
-      res.end(
-        JSON.stringify({
-          error: e.message || String(e),
-        })
-      );
+      res.end(JSON.stringify({ error: e.message || String(e) }));
     }
     return;
   }
