@@ -1,16 +1,8 @@
-/**
- * X API v2 に OAuth 1.0a で投稿し、Slack / Discord に URL（または本文+URL）を送る
- */
-
-import { oauth1AuthorizationHeader } from "./oauth1a.mjs";
+import { oauth1AuthorizationHeader } from "./oauth1a";
 
 const TWEETS_ENDPOINT = "https://api.twitter.com/2/tweets";
 
-/**
- * @param {string} text 投稿本文（長さは X の制限に従う）
- * @returns {Promise<string>} ツイート ID
- */
-export async function postTweet(text) {
+export async function postTweet(text: string): Promise<string> {
   const consumerKey = process.env.X_API_KEY;
   const consumerSecret = process.env.X_API_SECRET;
   const token = process.env.X_ACCESS_TOKEN;
@@ -38,7 +30,8 @@ export async function postTweet(text) {
     },
     body: JSON.stringify({ text }),
   });
-  const data = await res.json();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const data = (await res.json()) as any;
   if (!res.ok) {
     const msg =
       data.detail ||
@@ -47,11 +40,11 @@ export async function postTweet(text) {
       JSON.stringify(data);
     throw new Error(msg);
   }
-  const id = data.data?.id;
+  const id = data.data?.id as string | undefined;
   if (!id) throw new Error("レスポンスにツイート ID がありません。");
   return id;
 }
 
-export function tweetPermalink(username, tweetId) {
+export function tweetPermalink(username: string, tweetId: string): string {
   return `https://x.com/${username}/status/${tweetId}`;
 }

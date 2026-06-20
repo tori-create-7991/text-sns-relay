@@ -5,8 +5,7 @@ import { fileURLToPath } from "node:url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, "..");
 
-/** .env を process.env にマージ（既存の環境変数は上書きしない） */
-export function loadEnv() {
+export function loadEnv(): void {
   const envPath = join(ROOT, ".env");
   if (!existsSync(envPath)) return;
   const raw = readFileSync(envPath, "utf8");

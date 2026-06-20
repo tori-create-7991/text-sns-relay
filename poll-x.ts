@@ -1,17 +1,9 @@
-#!/usr/bin/env node
-/**
- * X API v2 で自分の最新投稿をポーリングし、新しい分だけ Webhook に送る。
- * 読み取り API は無料枠では使えないことが多いです（要: 有料プラン等）。
- *
- * Usage: node poll-x.mjs
- * 環境変数: X_BEARER_TOKEN, X_USER_ID, SLACK_WEBHOOK_URL, DISCORD_WEBHOOK_URL
- */
-
+#!/usr/bin/env tsx
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { loadEnv } from "./lib/load-env.mjs";
-import { relayWebhooks } from "./lib/relay-webhooks.mjs";
+import { loadEnv } from "./lib/load-env";
+import { relayWebhooks } from "./lib/relay-webhooks";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -20,42 +12,45 @@ loadEnv();
 const STATE_DIR = join(__dirname, "data");
 const STATE_FILE = join(STATE_DIR, "last-tweet-id.json");
 
-function loadLastId() {
+function loadLastId(): string | null {
   if (!existsSync(STATE_FILE)) return null;
   try {
-    const j = JSON.parse(readFileSync(STATE_FILE, "utf8"));
+    const j = JSON.parse(readFileSync(STATE_FILE, "utf8")) as { lastTweetId?: string };
     return j.lastTweetId ?? null;
   } catch {
     return null;
   }
 }
 
-function saveLastId(id) {
+function saveLastId(id: string): void {
   mkdirSync(STATE_DIR, { recursive: true });
   writeFileSync(STATE_FILE, JSON.stringify({ lastTweetId: id }, null, 2));
 }
 
-async function fetchRecentTweets(bearer, userId) {
+interface Tweet {
+  id: string;
+  text: string;
+  created_at?: string;
+}
+
+async function fetchRecentTweets(bearer: string, userId: string): Promise<Tweet[]> {
   const u = new URL(`https://api.twitter.com/2/users/${userId}/tweets`);
   u.searchParams.set("max_results", "5");
   u.searchParams.set("tweet.fields", "created_at");
   const res = await fetch(u, {
     headers: { Authorization: `Bearer ${bearer}` },
   });
-  const data = await res.json();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const data = (await res.json()) as any;
   if (!res.ok) {
     throw new Error(
       data.detail || data.title || data.errors?.[0]?.message || JSON.stringify(data)
     );
   }
-  return data.data ?? [];
+  return (data.data ?? []) as Tweet[];
 }
 
-async function relayUrl(url) {
-  await relayWebhooks(url);
-}
-
-async function main() {
+async function main(): Promise<void> {
   const bearer = process.env.X_BEARER_TOKEN;
   const userId = process.env.X_USER_ID;
   if (!bearer || !userId) {
@@ -105,13 +100,13 @@ async function main() {
 
   for (const t of newOnes) {
     const url = `https://x.com/${username}/status/${t.id}`;
-    await relayUrl(url);
+    await relayWebhooks(url);
     console.log("送信:", url);
   }
   saveLastId(newOnes[newOnes.length - 1].id);
 }
 
-main().catch((e) => {
+main().catch((e: Error) => {
   console.error(e.message || e);
   process.exit(1);
 });
