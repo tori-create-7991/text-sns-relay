@@ -1,26 +1,19 @@
-/**
- * X・Bluesky・Threads への並列同時投稿 + 履歴保存
- * 各プラットフォームが未設定またはエラーでも処理を止めない
- * Slack/Discord への中継は X の URL のみ（現状維持）
- */
+import { postTweet, tweetPermalink } from "./post-x";
+import { postBluesky } from "./post-bluesky";
+import { postThreads } from "./post-threads";
+import { relayWebhooks } from "./relay-webhooks";
+import { appendHistory } from "./history";
+import type { PostAllResult, PlatformResult } from "./types";
 
-import { postTweet, tweetPermalink } from "./post-x.mjs";
-import { postBluesky } from "./post-bluesky.mjs";
-import { postThreads } from "./post-threads.mjs";
-import { relayWebhooks } from "./relay-webhooks.mjs";
-import { appendHistory } from "./history.mjs";
-
-/**
- * @param {string} text 投稿本文
- * @param {{ shareBody?: boolean }} [opts]
- * @returns {Promise<{ x: object|null, bluesky: object|null, threads: object|null }>}
- */
-export async function postAll(text, { shareBody = false } = {}) {
+export async function postAll(
+  text: string,
+  { shareBody = false }: { shareBody?: boolean } = {}
+): Promise<PostAllResult> {
   const username = process.env.X_USERNAME?.trim();
 
   const [xResult, bskyResult, threadsResult] = await Promise.all([
     // X
-    (async () => {
+    (async (): Promise<PlatformResult> => {
       if (!process.env.X_API_KEY) return null;
       try {
         if (!username) throw new Error("X_USERNAME を .env に設定してください。");
@@ -28,27 +21,27 @@ export async function postAll(text, { shareBody = false } = {}) {
         const url = tweetPermalink(username, id);
         return { url, ok: true };
       } catch (e) {
-        return { url: null, ok: false, error: e.message };
+        return { url: null, ok: false, error: (e as Error).message };
       }
     })(),
     // Bluesky
-    (async () => {
+    (async (): Promise<PlatformResult> => {
       try {
         const result = await postBluesky(text);
         if (!result) return null;
         return { ...result, ok: true };
       } catch (e) {
-        return { url: null, ok: false, error: e.message };
+        return { url: null, ok: false, error: (e as Error).message };
       }
     })(),
     // Threads
-    (async () => {
+    (async (): Promise<PlatformResult> => {
       try {
         const result = await postThreads(text);
         if (!result) return null;
         return { ...result, ok: true };
       } catch (e) {
-        return { url: null, ok: false, error: e.message };
+        return { url: null, ok: false, error: (e as Error).message };
       }
     })(),
   ]);
@@ -59,7 +52,7 @@ export async function postAll(text, { shareBody = false } = {}) {
     try {
       await relayWebhooks(relayText);
     } catch (e) {
-      console.error("Webhook relay error:", e.message);
+      console.error("Webhook relay error:", (e as Error).message);
     }
   }
 

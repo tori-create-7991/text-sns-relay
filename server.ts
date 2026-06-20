@@ -1,26 +1,23 @@
-#!/usr/bin/env node
-/**
- * ローカル用 Web UI（127.0.0.1 のみ既定）。ブラウザから投稿 → X/Bluesky/Threads に同時投稿、Slack/Discord へ共有。
- */
-
-import { createServer } from "node:http";
-import { loadEnv } from "./lib/load-env.mjs";
-import { postAll } from "./lib/post-all.mjs";
-import { loadHistory } from "./lib/history.mjs";
+#!/usr/bin/env tsx
+import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { loadEnv } from "./lib/load-env";
+import { postAll } from "./lib/post-all";
+import { loadHistory } from "./lib/history";
+import type { HistoryEntry } from "./lib/types";
 
 loadEnv();
 
 const HOST = process.env.RELAY_UI_HOST ?? "127.0.0.1";
-const PORT = Number(process.env.RELAY_UI_PORT ?? "3847", 10);
+const PORT = Number(process.env.RELAY_UI_PORT ?? "3847");
 const MAX_BODY = 65536;
 
-function checkBasicAuth(req) {
+function checkBasicAuth(req: IncomingMessage): boolean {
   const user = process.env.RELAY_UI_USER;
   const pass = process.env.RELAY_UI_PASSWORD;
   if (!user || !pass) return true;
   const h = req.headers.authorization;
   if (!h?.startsWith("Basic ")) return false;
-  let decoded;
+  let decoded: string;
   try {
     decoded = Buffer.from(h.slice(6), "base64").toString("utf8");
   } catch {
@@ -32,11 +29,11 @@ function checkBasicAuth(req) {
   return u === user && p === pass;
 }
 
-function readBody(req) {
+function readBody(req: IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
     let size = 0;
-    const chunks = [];
-    req.on("data", (c) => {
+    const chunks: Buffer[] = [];
+    req.on("data", (c: Buffer) => {
       size += c.length;
       if (size > MAX_BODY) {
         reject(new Error("リクエストが大きすぎます。"));
@@ -175,11 +172,11 @@ const HTML = `<!DOCTYPE html>
 </body>
 </html>`;
 
-function renderHistory(history) {
+function renderHistory(history: HistoryEntry[]): string {
   const rows = history.slice(0, 50).map((e) => {
     const date = new Date(e.sent_at).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
     const text = e.text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    const link = (p) => {
+    const link = (p: HistoryEntry["x"]): string => {
       if (!p?.ok || !p.url) return p ? "エラー" : "未設定";
       if (!/^https?:\/\//.test(p.url)) return "（不正なURL）";
       const escaped = p.url.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
@@ -234,7 +231,7 @@ function renderHistory(history) {
 </html>`;
 }
 
-const server = createServer(async (req, res) => {
+const server = createServer(async (req: IncomingMessage, res: ServerResponse) => {
   const url = new URL(req.url ?? "/", `http://${req.headers.host}`);
 
   if (!checkBasicAuth(req)) {
@@ -260,17 +257,17 @@ const server = createServer(async (req, res) => {
   }
 
   if (req.method === "POST" && url.pathname === "/api/post") {
-    let raw;
+    let raw: string;
     try {
       raw = await readBody(req);
     } catch (e) {
       res.writeHead(400, { "Content-Type": "application/json; charset=utf-8" });
-      res.end(JSON.stringify({ error: e.message }));
+      res.end(JSON.stringify({ error: (e as Error).message }));
       return;
     }
-    let payload;
+    let payload: { text?: unknown; shareBody?: unknown };
     try {
-      payload = JSON.parse(raw);
+      payload = JSON.parse(raw) as { text?: unknown; shareBody?: unknown };
     } catch {
       res.writeHead(400, { "Content-Type": "application/json; charset=utf-8" });
       res.end(JSON.stringify({ error: "JSON が不正です。" }));
@@ -290,7 +287,7 @@ const server = createServer(async (req, res) => {
       res.end(JSON.stringify(result));
     } catch (e) {
       res.writeHead(500, { "Content-Type": "application/json; charset=utf-8" });
-      res.end(JSON.stringify({ error: e.message || String(e) }));
+      res.end(JSON.stringify({ error: (e as Error).message || String(e) }));
     }
     return;
   }

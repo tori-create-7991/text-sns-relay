@@ -1,11 +1,6 @@
-#!/usr/bin/env node
-/**
- * CLI: 送信履歴の一覧表示
- * Usage: node list.mjs [--limit N]   （デフォルト 20 件）
- */
-
-import { loadEnv } from "./lib/load-env.mjs";
-import { loadHistory } from "./lib/history.mjs";
+#!/usr/bin/env tsx
+import { loadEnv } from "./lib/load-env";
+import { loadHistory } from "./lib/history";
 
 loadEnv();
 
@@ -30,11 +25,11 @@ for (const e of entries) {
   const date = new Date(e.sent_at).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
   const preview = e.text.length > 60 ? e.text.slice(0, 60) + "…" : e.text;
   console.log(`[${date}] "${preview}"`);
-  if (e.x?.ok)       console.log(`  X       ${e.x.url}`);
-  if (e.x?.error)    console.log(`  X       エラー: ${e.x.error}`);
-  if (e.bluesky?.ok) console.log(`  Bluesky ${e.bluesky.url}`);
-  if (e.bluesky?.error) console.log(`  Bluesky エラー: ${e.bluesky.error}`);
-  if (e.threads?.ok) console.log(`  Threads ${e.threads.url}`);
-  if (e.threads?.error) console.log(`  Threads エラー: ${e.threads.error}`);
+  if (e.x?.ok)            console.log(`  X       ${e.x.url}`);
+  if (e.x && !e.x.ok)    console.log(`  X       エラー: ${e.x.error}`);
+  if (e.bluesky?.ok)      console.log(`  Bluesky ${e.bluesky.url}`);
+  if (e.bluesky && !e.bluesky.ok) console.log(`  Bluesky エラー: ${e.bluesky.error}`);
+  if (e.threads?.ok)      console.log(`  Threads ${e.threads.url}`);
+  if (e.threads && !e.threads.ok) console.log(`  Threads エラー: ${e.threads.error}`);
   console.log();
 }

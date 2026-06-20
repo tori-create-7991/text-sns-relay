@@ -1,15 +1,6 @@
-/**
- * Meta Threads API への投稿（2ステップ: container 作成 → publish）
- * 必要env: THREADS_USER_ID, THREADS_ACCESS_TOKEN
- */
-
 const THREADS_API = "https://graph.threads.net/v1.0";
 
-/**
- * @param {string} text 投稿本文
- * @returns {Promise<{ url: string } | null>} 未設定なら null
- */
-export async function postThreads(text) {
+export async function postThreads(text: string): Promise<{ url: string } | null> {
   const userId = process.env.THREADS_USER_ID;
   const token = process.env.THREADS_ACCESS_TOKEN;
   if (!userId || !token) return null;
@@ -25,13 +16,14 @@ export async function postThreads(text) {
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: createParams,
   });
-  const createData = await createRes.json();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const createData = (await createRes.json()) as any;
   if (!createRes.ok) {
     const msg =
       createData.error?.message || createData.message || JSON.stringify(createData);
     throw new Error(msg);
   }
-  const creationId = createData.id;
+  const creationId = createData.id as string;
 
   // Step 2: publish
   const publishParams = new URLSearchParams({
@@ -43,14 +35,15 @@ export async function postThreads(text) {
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: publishParams,
   });
-  const publishData = await publishRes.json();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const publishData = (await publishRes.json()) as any;
   if (!publishRes.ok) {
     const msg =
       publishData.error?.message || publishData.message || JSON.stringify(publishData);
     throw new Error(msg);
   }
 
-  const postId = publishData.id;
+  const postId = publishData.id as string;
   const url = `https://www.threads.net/post/${postId}`;
   return { url };
 }

@@ -6,10 +6,16 @@
     "node": ">=18"
   },
   "scripts": {
-    "send": "node send-url.mjs",
-    "poll": "node poll-x.mjs",
-    "post": "node post-x.mjs",
-    "ui": "node server.mjs",
-    "list": "node list.mjs"
+    "send": "tsx send-url.ts",
+    "poll": "tsx poll-x.ts",
+    "post": "tsx post-x.ts",
+    "ui": "tsx server.ts",
+    "list": "tsx list.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
   }
 }

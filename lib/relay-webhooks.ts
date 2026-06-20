@@ -1,8 +1,4 @@
-/**
- * Slack / Discord Incoming Webhook へ同じテキストを送る
- */
-
-async function postJson(url, body) {
+async function postJson(url: string, body: Record<string, string>): Promise<void> {
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -14,10 +10,7 @@ async function postJson(url, body) {
   }
 }
 
-/**
- * @param {string} text Slack は plain、Discord も content（Markdown ではない）
- */
-export async function relayWebhooks(text) {
+export async function relayWebhooks(text: string): Promise<void> {
   const slack = process.env.SLACK_WEBHOOK_URL;
   const discord = process.env.DISCORD_WEBHOOK_URL;
   if (!slack && !discord) {
@@ -25,7 +18,7 @@ export async function relayWebhooks(text) {
       "SLACK_WEBHOOK_URL または DISCORD_WEBHOOK_URL を .env に設定してください。"
     );
   }
-  const tasks = [];
+  const tasks: Promise<void>[] = [];
   if (slack) tasks.push(postJson(slack, { text }));
   if (discord) tasks.push(postJson(discord, { content: text }));
   await Promise.all(tasks);
