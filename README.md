@@ -1,20 +1,31 @@
-# X → Slack / Discord（times 用 URL 通知）
+# text-sns-relay（旧 x-times-relay）
 
-自分の X 投稿の **URL**（または **本文＋URL**）を、Slack と Discord の **Webhook** に送るためのツールです。  
-**ブラウザ UI**（ローカル）と **CLI** があります。
+自分の短文投稿を **X / Bluesky / Threads** に同時投稿し、Slack と Discord の **Webhook** に通知するためのツールです。
+**ブラウザ UI**（ローカル、履歴閲覧つき）と **CLI** があります。
 
 ## リポジトリの取得
 
 ```bash
-git clone https://github.com/tori-create-7991/x-times-relay.git
-cd x-times-relay
+git clone https://github.com/tori-create-7991/text-sns-relay.git
+cd text-sns-relay
 ```
 
-## 無料で「簡易」にやる場合の現実
+## 対応プラットフォーム
+
+| プラットフォーム | 投稿 | 認証 |
+|---|---|---|
+| X | ✓ | OAuth1.0a |
+| Bluesky | ✓ | App Password |
+| Threads（Meta） | ✓ | Threads API アクセストークン |
+
+未設定のプラットフォームは自動でスキップされます（`postAll` は各プラットフォームを並行実行し、設定済みの分だけ投稿）。
+
+## 無料で「簡易」にやる場合の現実（X）
 
 - **X の投稿をプログラムで読む API** は、現状 **無料枠だけでは読み取りができない** ことが多いです。
-- **投稿だけ**は無料枠で使える場合があります（X Developer のプラン次第）。その場合は **`post-x.mjs` か Web UI** で「投稿 → 返ってきた ID で URL を組み立て → Webhook に送る」が **読み取り API なし**で動きます。
-- 読み取りが使えないときの代替は、**手動で URL を渡す** `send-url.mjs`、または **ポーリング** `poll-x.mjs`（読み取り API が必要）。
+- **投稿だけ**は無料枠で使える場合があります（X Developer のプラン次第）。
+- 読み取りが使えないときの代替は、**手動で URL を渡す** `send-url.ts`、または **ポーリング** `poll-x.ts`（読み取り API が必要）。
+- Bluesky・Threads は投稿APIのみ実装（読み取りは未対応）。
 
 ## 準備（Slack / Discord）
 
@@ -31,18 +42,33 @@ cd x-times-relay
 ## セットアップ
 
 ```bash
+npm install
 cp env.example .env
-# .env を編集（Webhook は必須。X に API 投稿するなら OAuth キーも）
+# .env を編集（Webhook は必須。各SNSに投稿するなら認証情報も）
 ```
 
 Node.js 18 以上（`fetch` 利用）。
 
-### X に API で投稿する場合の `.env`
+### X の `.env`
 
-`env.example` のとおり、次を設定します（X Developer Portal でアプリ作成・ユーザー認証）。
+X Developer Portal でアプリ作成・ユーザー認証（OAuth1.0a）。
 
 - `X_API_KEY` / `X_API_SECRET` / `X_ACCESS_TOKEN` / `X_ACCESS_TOKEN_SECRET`
 - `X_USERNAME` … 投稿 URL 用（`@` なし）
+
+### Bluesky の `.env`
+
+アカウント設定 → Privacy and Security → App Passwords で発行（本パスワードは使わない）。
+
+- `BSKY_HANDLE`（例: `yourname.bsky.social`）
+- `BSKY_APP_PASSWORD`
+
+### Threads の `.env`
+
+Meta for Developers でアプリ作成 → Threads API プロダクト追加 → アクセストークン取得。
+
+- `THREADS_USER_ID`
+- `THREADS_ACCESS_TOKEN`
 
 ## Web UI（ローカル）
 
@@ -51,15 +77,26 @@ npm run ui
 # ブラウザで http://127.0.0.1:3847/ を開く
 ```
 
+- 設定済みの全プラットフォームへ同時投稿。結果は各プラットフォームごとに表示。
+- `/history` で送信履歴（直近50件）を一覧表示。
 - **既定で `127.0.0.1` のみ**（LAN からは開けません）。変えたい場合は `RELAY_UI_HOST` / `RELAY_UI_PORT`。
 - ブラウザから他人に使われたくない場合は **`RELAY_UI_USER` と `RELAY_UI_PASSWORD`** を設定すると Basic 認証がかかります。
 
-## CLI: X に投稿して Slack / Discord へ
+## CLI: 投稿して Slack / Discord へ
 
 ```bash
-node post-x.mjs "いまの気持ち"
+npm run post -- "いまの気持ち"
 # 本文も Slack/Discord に送りたいとき
-node post-x.mjs --body "いまの気持ち"
+npm run post -- --body "いまの気持ち"
+```
+
+設定済みの全プラットフォームに同時投稿されます。Slack/Discordへは X の URL のみ中継されます。
+
+## 送信履歴の確認（CLI）
+
+```bash
+npm run list
+npm run list -- --limit 50
 ```
 
 ## 使い方（手動で URL だけ飛ばす）
@@ -67,18 +104,18 @@ node post-x.mjs --body "いまの気持ち"
 投稿した X の URL をコピーして:
 
 ```bash
-node send-url.mjs "https://x.com/yourname/status/1234567890"
+npm run send -- "https://x.com/yourname/status/1234567890"
 ```
 
 標準入力でも可:
 
 ```bash
-echo "https://x.com/yourname/status/1234567890" | node send-url.mjs
+echo "https://x.com/yourname/status/1234567890" | npm run send
 ```
 
 同じ URL が **Slack と Discord の両方**に送られます（どちらかの URL だけ設定すれば、その一方だけにも送れます）。
 
-## 自動ポーリング（読み取り API が使える場合のみ）
+## 自動ポーリング（Xの読み取り API が使える場合のみ）
 
 X Developer Portal で **読み取り可能な** Bearer トークンと、数値の **ユーザー ID** が取れる場合:
 
@@ -93,10 +130,27 @@ X_USERNAME=yourname
 初回は「最新 ID だけ記録」し、**それ以降の新規投稿**から通知します。
 
 ```bash
-node poll-x.mjs
+npm run poll
 ```
 
 定期実行はローカルの cron や GitHub Actions などに任せてください（シークレットはリポジトリに置かないこと）。
+
+## ディレクトリ構成
+
+```
+lib/
+  load-env.ts
+  relay-webhooks.ts     # Slack/Discord通知
+  oauth1a.ts             # X OAuth1.0a署名
+  post-x.ts              # X投稿
+  post-bluesky.ts        # Bluesky投稿（セッション90分キャッシュ）
+  post-threads.ts        # Threads投稿（2ステップ: container作成→publish）
+  post-all.ts            # 全プラットフォーム並行投稿 + 履歴保存
+  history.ts             # 送信履歴の読み書き（書き込みキューで競合防止）
+  types.ts                # 共有型定義
+post-x.ts                # CLI: 統合投稿
+send-url.ts / poll-x.ts / server.ts / list.ts
+```
 
 ## ソース管理について
 
@@ -110,3 +164,16 @@ node poll-x.mjs
 | Slack に来ない | Webhook URL がそのチャンネル用か、アプリがチャンネルに入っているか |
 | Discord に来ない | Webhook がそのチャンネル用か、URL が有効か |
 | `poll-x` が 403/401 | 無料枠では読み取り不可の可能性。手動 `send-url` 運用へ |
+| Bluesky ログイン失敗 | `BSKY_APP_PASSWORD` が本パスワードでなくApp Passwordか確認 |
+| Threads 投稿失敗 | アクセストークンの有効期限、Threads API プロダクトの追加状況を確認 |
+
+## アイディア / 拡張案（メモ）
+
+> 今後の拡張アイデア。実装は未定の構想メモ。
+
+- **ブログに「つぶやき」カテゴリを持たせる** — 各SNSへ流すだけでなく、ブログ側にも短文の「つぶやき」カテゴリを設けて連携する（tori-dev-blog の `/tweets` ページ、Phase 2 予定）。
+- **1日1回の発言（モーニングルーティン）** — 毎朝の習慣として、次の3つの切り口で1日1回投稿する:
+  - **発見** … 気づいたこと・知ったこと
+  - **達成** … できたこと・進んだこと
+  - **改善** … 直したこと・次に良くしたいこと
+- **週1回のブログ** — 1週間に1回、その週の調べごとや発見をまとめた記事を出す。
