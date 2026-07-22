@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { HistoryEntry } from "./types";
+import { syncToNotion } from "./notion-sync";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = join(__dirname, "..", "data");
@@ -30,5 +31,9 @@ export function appendHistory(entry: HistoryEntry): Promise<void> {
     history.unshift(entry);
     writeFileSync(HISTORY_FILE, JSON.stringify(history, null, 2), "utf8");
   });
+  // Notion同期はローカル履歴書き込みと独立（失敗してもローカル履歴は残る）
+  syncToNotion(entry).catch((e) =>
+    console.error("Notion同期エラー:", (e as Error).message)
+  );
   return writeQueue;
 }

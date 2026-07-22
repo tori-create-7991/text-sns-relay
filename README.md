@@ -135,6 +135,22 @@ npm run poll
 
 定期実行はローカルの cron や GitHub Actions などに任せてください（シークレットはリポジトリに置かないこと）。
 
+## tori-dev-blog との連携（Notion経由、任意）
+
+投稿履歴を [tori-dev-blog](https://github.com/tori-create-7991/tori-dev-blog)
+の `/tweets` ページに反映したい場合、Notion DB「つぶやきログ」に同期できる
+（tori-dev-blog `docs/adr/0003-notion-as-shared-datastore-for-tweets.md` 参照）。
+コードレベルの依存はなく、両リポジトリが同じ Notion DB を参照するのみ（疎結合）。
+
+`.env` に追加:
+
+```env
+NOTION_TOKEN=ntn_...
+NOTION_TWEETS_DB_ID=641e0e88-38b8-466a-98e4-d53aa4bd9432
+```
+
+未設定なら同期はスキップされ、ローカルの `data/history.json` のみに記録される。
+
 ## ディレクトリ構成
 
 ```
@@ -147,6 +163,7 @@ lib/
   post-threads.ts        # Threads投稿（2ステップ: container作成→publish）
   post-all.ts            # 全プラットフォーム並行投稿 + 履歴保存
   history.ts             # 送信履歴の読み書き（書き込みキューで競合防止）
+  notion-sync.ts         # Notion DB「つぶやきログ」への同期（tori-dev-blog連携）
   types.ts                # 共有型定義
 post-x.ts                # CLI: 統合投稿
 send-url.ts / poll-x.ts / server.ts / list.ts
