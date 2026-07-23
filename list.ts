@@ -2,7 +2,7 @@
 import { loadEnv } from "./lib/load-env";
 import { loadHistory } from "./lib/history";
 
-loadEnv();
+await loadEnv();
 
 const args = process.argv.slice(2);
 let limit = 20;
