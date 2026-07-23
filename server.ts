@@ -5,7 +5,7 @@ import { postAll } from "./lib/post-all";
 import { loadHistory } from "./lib/history";
 import type { HistoryEntry } from "./lib/types";
 
-loadEnv();
+await loadEnv();
 
 const HOST = process.env.RELAY_UI_HOST ?? "127.0.0.1";
 const PORT = Number(process.env.RELAY_UI_PORT ?? "3847");

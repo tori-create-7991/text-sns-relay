@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { loadEnv } from "./lib/load-env";
 import { postAll } from "./lib/post-all";
 
-loadEnv();
+await loadEnv();
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2);

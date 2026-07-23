@@ -135,6 +135,32 @@ npm run poll
 
 定期実行はローカルの cron や GitHub Actions などに任せてください（シークレットはリポジトリに置かないこと）。
 
+## GCP Secret Manager 連携（任意）
+
+トークン・Webhook URL を `.env` に平文で置く代わりに、GCP Secret Manager
+（プロジェクト `tori-dev-secrets`）で一元管理できます。
+
+- **優先順位**: シェルの環境変数 > Secret Manager > `.env`
+- **対象キー**: `X_API_KEY` / `X_API_SECRET` / `X_ACCESS_TOKEN` / `X_ACCESS_TOKEN_SECRET` / `X_BEARER_TOKEN` / `BSKY_HANDLE` / `BSKY_APP_PASSWORD` / `THREADS_ACCESS_TOKEN` / `NOTION_TOKEN` / `SLACK_WEBHOOK_URL` / `DISCORD_WEBHOOK_URL` / `RELAY_UI_PASSWORD`
+- **シークレット名の規則**: `text-sns-relay-` + キーを kebab-case にしたもの（例: `X_API_KEY` → `text-sns-relay-x-api-key`）
+- Secret Manager 未設定（ADC無し・シークレット未作成・権限なし）の場合は自動的に `.env` にフォールバックするので、既存の `.env` 運用は変更なしで動きます。
+
+### セットアップ
+
+```bash
+# ローカルの認証情報（ADC）を tori-create.org アカウントで発行
+gcloud auth application-default login --account=ryo.tonegawa@tori-create.org
+
+# .env にある値を tori-dev-secrets へアップロード（既存キーは新バージョン追加）
+bash scripts/sync-secrets-to-gcp.sh
+```
+
+アップロード後は `.env` から該当の値を削除して問題ありません（残しておいても
+優先順位により Secret Manager 側が使われます）。
+
+別プロジェクトを使う場合は `GCP_SECRETS_PROJECT` で上書き、Secret Manager
+自体を無効化したい場合は `SKIP_SECRET_MANAGER=1` を指定してください。
+
 ## tori-dev-blog との連携（Notion経由、任意）
 
 投稿履歴を [tori-dev-blog](https://github.com/tori-create-7991/tori-dev-blog)

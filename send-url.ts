@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { loadEnv } from "./lib/load-env";
 import { relayWebhooks } from "./lib/relay-webhooks";
 
-loadEnv();
+await loadEnv();
 
 async function main(): Promise<void> {
   let url = process.argv[2]?.trim();

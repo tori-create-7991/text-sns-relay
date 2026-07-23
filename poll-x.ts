@@ -7,7 +7,7 @@ import { relayWebhooks } from "./lib/relay-webhooks";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-loadEnv();
+await loadEnv();
 
 const STATE_DIR = join(__dirname, "data");
 const STATE_FILE = join(STATE_DIR, "last-tweet-id.json");
