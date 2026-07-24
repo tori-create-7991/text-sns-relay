@@ -1,4 +1,5 @@
 import { postTweet, tweetPermalink } from "./post-x";
+import { postTweetViaTypefully } from "./post-x-typefully";
 import { postBluesky } from "./post-bluesky";
 import { postThreads } from "./post-threads";
 import { relayWebhooks } from "./relay-webhooks";
@@ -12,13 +13,18 @@ export async function postAll(
   const username = process.env.X_USERNAME?.trim();
 
   const [xResult, bskyResult, threadsResult] = await Promise.all([
-    // X
+    // X（TYPEFULLY_API_KEY 設定時はTypefully経由、それ以外は直接X API）
     (async (): Promise<PlatformResult> => {
-      if (!process.env.X_API_KEY) return null;
+      const useTypefully = !!process.env.TYPEFULLY_API_KEY;
+      if (!useTypefully && !process.env.X_API_KEY) return null;
       try {
-        if (!username) throw new Error("X_USERNAME を .env に設定してください。");
-        const id = await postTweet(text);
-        const url = tweetPermalink(username, id);
+        const url = useTypefully
+          ? await postTweetViaTypefully(text)
+          : await (async () => {
+              if (!username) throw new Error("X_USERNAME を .env に設定してください。");
+              const id = await postTweet(text);
+              return tweetPermalink(username, id);
+            })();
         return { url, ok: true };
       } catch (e) {
         return { url: null, ok: false, error: (e as Error).message };
