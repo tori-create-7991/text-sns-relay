@@ -56,6 +56,29 @@ X Developer Portal でアプリ作成・ユーザー認証（OAuth1.0a）。
 - `X_API_KEY` / `X_API_SECRET` / `X_ACCESS_TOKEN` / `X_ACCESS_TOKEN_SECRET`
 - `X_USERNAME` … 投稿 URL 用（`@` なし）
 
+#### 別アカウントで投稿したい場合（3-legged OAuth）
+
+Developer Portal の「再生成」で作れるアクセストークンは、ログイン中の
+X アカウント自身にしか発行できない。アプリの所有者（開発者アカウント）とは
+**別の X アカウント**に投稿させたい場合は `authorize-x` を使う。
+
+1. X Developer Portal → 対象アプリ → **Settings** → **User authentication settings**
+   の Callback URI / Redirect URL に `http://127.0.0.1:3849/callback` を追加
+   （ポートを変える場合は `X_OAUTH_CALLBACK_PORT` に合わせる）
+2. `.env` に `X_API_KEY` / `X_API_SECRET`（アプリのコンシューマーキー）だけ設定した状態で:
+   ```bash
+   npm run authorize-x
+   ```
+3. ターミナルに出力される認可 URL を、**投稿させたいアカウントでログインした
+   ブラウザ**（別ウィンドウ・シークレットウィンドウ等）で開いて許可する
+4. 認可が終わるとターミナルに `X_ACCESS_TOKEN` / `X_ACCESS_TOKEN_SECRET` が
+   表示されるので、その値で `.env`（または Secret Manager）を更新する
+
+Free プランはアプリ単位で判定されるため、どのアカウントで投稿しても同じアプリの
+無料枠を共有する。この方式は同一マシン上のブラウザでの認可を前提にしている
+（認可させたい相手が別マシンにいる場合は、公開到達可能な HTTPS の callback URL が
+別途必要になる）。
+
 ### Bluesky の `.env`
 
 アカウント設定 → Privacy and Security → App Passwords で発行（本パスワードは使わない）。
@@ -158,6 +181,7 @@ lib/
   load-env.ts
   relay-webhooks.ts     # Slack/Discord通知
   oauth1a.ts             # X OAuth1.0a署名
+  x-oauth-flow.ts        # X 3-legged OAuth（別アカウント認可）
   post-x.ts              # X投稿
   post-bluesky.ts        # Bluesky投稿（セッション90分キャッシュ）
   post-threads.ts        # Threads投稿（2ステップ: container作成→publish）
@@ -167,6 +191,7 @@ lib/
   types.ts                # 共有型定義
 post-x.ts                # CLI: 統合投稿
 send-url.ts / poll-x.ts / server.ts / list.ts
+authorize-x.ts            # CLI: 別Xアカウントの3-legged OAuth認可
 ```
 
 ## ソース管理について

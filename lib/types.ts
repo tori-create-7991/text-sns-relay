@@ -22,6 +22,9 @@ export interface OAuth1aParams {
   url: string;
   consumerKey: string;
   consumerSecret: string;
-  token: string;
-  tokenSecret: string;
+  // 3-legged flow の request_token 取得時点ではまだ token/tokenSecret が無い
+  token?: string;
+  tokenSecret?: string;
+  // oauth_callback（request_token時）/ oauth_verifier（access_token交換時）等
+  extraOAuthParams?: Record<string, string>;
 }

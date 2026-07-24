@@ -13,15 +13,16 @@ function nonce(): string {
 }
 
 export function oauth1AuthorizationHeader(p: OAuth1aParams): string {
-  const { method, url, consumerKey, consumerSecret, token, tokenSecret } = p;
+  const { method, url, consumerKey, consumerSecret, token, tokenSecret, extraOAuthParams } = p;
 
   const oauth: Record<string, string> = {
     oauth_consumer_key: consumerKey,
     oauth_nonce: nonce(),
     oauth_signature_method: "HMAC-SHA1",
     oauth_timestamp: Math.floor(Date.now() / 1000).toString(),
-    oauth_token: token,
     oauth_version: "1.0",
+    ...(token ? { oauth_token: token } : {}),
+    ...extraOAuthParams,
   };
 
   const keys = Object.keys(oauth).sort();
@@ -33,7 +34,8 @@ export function oauth1AuthorizationHeader(p: OAuth1aParams): string {
     percentEncode(url),
     percentEncode(paramString),
   ].join("&");
-  const signingKey = `${percentEncode(consumerSecret)}&${percentEncode(tokenSecret)}`;
+  // request_token 取得時は tokenSecret が未確定なので空文字を使う（OAuth1.0a仕様）
+  const signingKey = `${percentEncode(consumerSecret)}&${percentEncode(tokenSecret ?? "")}`;
   const signature = createHmac("sha1", signingKey).update(baseString).digest("base64");
 
   const withSig: Record<string, string> = { ...oauth, oauth_signature: signature };
