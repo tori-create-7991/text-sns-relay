@@ -11,6 +11,7 @@
     "post": "tsx post-x.ts",
     "ui": "tsx server.ts",
     "list": "tsx list.ts",
+    "authorize-x": "tsx authorize-x.ts",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
