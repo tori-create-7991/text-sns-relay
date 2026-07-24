@@ -56,6 +56,22 @@ X Developer Portal でアプリ作成・ユーザー認証（OAuth1.0a）。
 - `X_API_KEY` / `X_API_SECRET` / `X_ACCESS_TOKEN` / `X_ACCESS_TOKEN_SECRET`
 - `X_USERNAME` … 投稿 URL 用（`@` なし）
 
+#### 課金せずにX投稿したい場合（Typefully経由、無料プラン）
+
+X APIのPay Per Use（$5〜の従量課金）を避けたい場合、[Typefully](https://typefully.com)
+無料プランのAPI経由でX投稿できる。TypefullyがX公式パートナーとしてAPI費用を負担する
+構造のため、自分でX Developer Portalのアプリ・Project設定は不要。
+
+- 制限: **無料プランは月15投稿まで**（1ソーシャルセット）
+- `.env`に`TYPEFULLY_API_KEY`と`TYPEFULLY_SOCIAL_SET_ID`を設定すると、X投稿はこちらが
+  優先され、直接API方式（`X_API_KEY`等）は使われなくなる
+- APIキー: Typefully → Settings → API で発行
+- `TYPEFULLY_SOCIAL_SET_ID`: 同じSettings → APIページの「Development mode」を
+  オンにすると画面上にIDが表示される
+
+月15投稿を超える運用にしたくなったら、素直にPay Per Use（$5チャージ、以降投稿
+$0.01〜0.015/件）に切り替えるのが実用的。
+
 ### Bluesky の `.env`
 
 アカウント設定 → Privacy and Security → App Passwords で発行（本パスワードは使わない）。
@@ -158,7 +174,8 @@ lib/
   load-env.ts
   relay-webhooks.ts     # Slack/Discord通知
   oauth1a.ts             # X OAuth1.0a署名
-  post-x.ts              # X投稿
+  post-x.ts              # X投稿（直接API）
+  post-x-typefully.ts    # X投稿（Typefully経由、無料プラン月15投稿まで）
   post-bluesky.ts        # Bluesky投稿（セッション90分キャッシュ）
   post-threads.ts        # Threads投稿（2ステップ: container作成→publish）
   post-all.ts            # 全プラットフォーム並行投稿 + 履歴保存
